@@ -6,6 +6,15 @@
 
 #include <iostream>
 
+// to do
+// deletion
+// serialisation
+//   ? order of serialisation to avoid recolouring ?
+// operator=
+
+// report
+
+/// Passed as argument to the constructor of exception class 'my_exc'.
 enum class error_t
 {
 	rotation_on_nullptr,
@@ -19,6 +28,7 @@ enum class error_t
 	no_successor
 };
 
+/// Exception class.
 class my_exc : public std::exception
 {
 	error_t problem;
@@ -38,6 +48,14 @@ public:
 			return "Wrong direction. Only LEFT (0) and RIGHT (1) are valid.";
 		case error_t::empty_map:
 			return "Attempt of performing an action inexecutable on an empty tree.";
+		case error_t::out_of_range:
+			return "Out of range.";
+		case error_t::bad_file:
+			return "Error about the file.";
+		case error_t::no_predecessor:
+			return "No predecessor.";
+		case error_t::no_successor:
+			return "No successor.";
 		default:
 			return "Unknown problem.";
 		}
@@ -49,6 +67,10 @@ const colour_t RED = 0, BLACK = 1;
 using dir_t = int8_t;
 const dir_t LEFT = 0, RIGHT = 1, ROOT = 2;
 
+/** Implementation of a map as a red-black tree.
+ @param key_type - the type used as the key
+ @mapped_type - the type of data assigned to the keys
+*/
 template <class key_type, class mapped_type>
 class my_map
 {
@@ -62,12 +84,13 @@ class my_map
 		node(value_type _data, std::shared_ptr<node> _parent = nullptr);
 	};
 	std::shared_ptr<node> root;
-	dir_t which_child(std::shared_ptr<node> point);
+	inline dir_t which_child(std::shared_ptr<node> point);
 	void rotation(std::shared_ptr<node> point, dir_t dir);
 	std::shared_ptr<node> predecessor(std::shared_ptr<node> point);
 	std::shared_ptr<node> successor(std::shared_ptr<node> point);
 
 	void print_node(std::shared_ptr<node> point, unsigned& level, dir_t& dir);
+
 public:
 	my_map(); // default
 	my_map(my_map& other); // copy
@@ -78,13 +101,16 @@ public:
 	value_type min();
 	mapped_type& at(key_type key);
 	void serialize(std::ofstream& file);
+	bool empty();
 
 	void print();
 
 	class iterator
 	{
 		std::shared_ptr<node> my_node;
+		iterator(std::shared_ptr<node> _my_node) : my_node(_my_node) {}
 	public:
+		iterator() {}
 		value_type operator*() { return my_node->data; }
 		iterator& operator++()
 		{
@@ -105,22 +131,31 @@ public:
 		}
 		// iterator operator++(int); ?
 		// iterator operator--(int); ?
-		bool operator=(value_type value);
-		bool operator==(iterator);
-		bool operator!=(iterator);
-		iterator begin() const;
-		iterator end() const;
+		bool operator=(value_type value) { *my_node = value; }
+		bool operator=(iterator other) { my_node = other.my_node; }
+		bool operator==(iterator other) { return my_node == other.my_node; }
+		bool operator!=(iterator other) { return my_node == other.my_node; }
+		iterator begin() const
+		{
+			if (root == nullptr) return iterator(nullptr);
+			std::shared_ptr<node> ptr = root;
+			while (ptr.child[LEFT] != nullptr) ptr = ptr->child[LEFT];
+			return iterator(ptr);
+		}
+		iterator end() const { return iterator(nullptr); }
 	};
 };
 
 template<class key_type, class mapped_type>
-dir_t my_map<key_type, mapped_type>::which_child(std::shared_ptr<node> point)
+inline dir_t my_map<key_type, mapped_type>::which_child(std::shared_ptr<node> point)
 {
-	if (point->parent == nullptr)
+	/*if (point->parent == nullptr)
 		return ROOT;
 	if (point->parent->child[LEFT] == point)
 		return LEFT;
-	return RIGHT;
+	return RIGHT;*/
+	return
+		point != root ? (point->parent->child[LEFT] == point ? LEFT : RIGHT) : ROOT;
 }
 
 template<class key_type, class mapped_type>
@@ -269,14 +304,14 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 	{
 		while (true)
 		{
-			if (point->colour == BLACK) // seems
-				return; //                  useless
+			//if (point->colour == BLACK) // seems
+			//	return; //                    useless
 			if (point->parent == nullptr)
 			{
 				point->colour = BLACK;
 				return;
-			} //seems needless
-			if (point->parent->colour == RED)//seems redundant
+			}
+			if (point->parent->colour == RED)
 			{
 				dir_t point_dir = which_child(point),
 					parent_dir = which_child(point->parent);
@@ -303,6 +338,75 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 			else
 				return;
 		}
+	}
+}
+
+template<class key_type, class mapped_type>
+void my_map<key_type, mapped_type>::erase(const key_type& key)
+{
+	if (root == nullptr)
+		return;
+	std::shared_ptr<node> point = root;
+	while (point->data.first != key)
+	{
+		dir_t that = (key < point->data.first ? LEFT : RIGHT);
+		if (point->child[that] == nullptr)
+			return;
+		point = point->child[that];
+	}
+	dir_t that = which_child(point);
+	if (point->child[LEFT] == nullptr)
+	{
+		if (point->child[RIGHT] == nullptr) // no children
+		{
+			if (point == root)
+				root = nullptr;
+			else
+				point->parent->child[that] = nullptr;
+			point.reset();
+		}
+		else // only the right child
+		{
+			if (point == root)
+			{
+				root = point->child[RIGHT];
+				point->child[RIGHT]->parent = nullptr;
+			}
+			else
+			{
+				point->parent->child[that] = point->child[RIGHT];
+				point->child[RIGHT]->parent = point->parent;
+			}
+			point.reset();
+		}
+	}
+	else
+	{
+		if (point->child[RIGHT] == nullptr) // only the left child
+		{
+			if (point == root)
+			{
+				root = point->child[LEFT];
+				point->child[LEFT]->parent = nullptr;
+			}
+			else
+			{
+				point->parent->child[that] = point->child[LEFT];
+				point->child[LEFT]->parent = point->parent;
+			}
+			point.reset();
+		}
+		else // both children
+		{
+			std::shared_ptr<node> replacer = predecessor(point);
+			std::swap(point->data, replacer->data);
+			that = which_child(replacer);
+			replacer->parent->child[that] = replacer->child[RIGHT];
+			if (replacer->child[RIGHT] != nullptr)
+				replacer->child[RIGHT]->parent = replacer->parent;
+			replacer.reset();
+		}
+		// Repair red-black tree properties violation.
 	}
 }
 
@@ -352,6 +456,12 @@ void my_map<key_type, mapped_type>::serialize(std::ofstream& file)
 	if (not file.good())
 		throw my_exc(error_t::bad_file);
 	// ...
+}
+
+template<class key_type, class mapped_type>
+bool my_map<key_type, mapped_type>::empty()
+{
+	return !root;
 }
 
 template<class key_type, class mapped_type>
