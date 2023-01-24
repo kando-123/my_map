@@ -63,13 +63,13 @@ public:
 };
 
 using colour_t = int8_t;
-const colour_t RED = 0, BLACK = 1;
+const colour_t RED = 0, BLACK = 1, DOUBLE_BLACK = 2;
 using dir_t = int8_t;
 const dir_t LEFT = 0, RIGHT = 1, ROOT = 2;
 
 /** Implementation of a map as a red-black tree.
- @param key_type - the type used as the key
- @mapped_type - the type of data assigned to the keys
+* @param key_type - the type used as the key
+* @mapped_type - the type of data assigned to the keys
 */
 template <class key_type, class mapped_type>
 class my_map
@@ -84,10 +84,12 @@ class my_map
 		node(value_type _data, std::shared_ptr<node> _parent = nullptr);
 	};
 	std::shared_ptr<node> root;
+	size_t number_of_nodes;
 	inline dir_t which_child(std::shared_ptr<node> point);
 	void rotation(std::shared_ptr<node> point, dir_t dir);
 	std::shared_ptr<node> predecessor(std::shared_ptr<node> point);
 	std::shared_ptr<node> successor(std::shared_ptr<node> point);
+	void resolve_double_black(std::shared_ptr<node> point);
 
 	void print_node(std::shared_ptr<node> point, unsigned& level, dir_t& dir);
 
@@ -100,7 +102,7 @@ public:
 	value_type max();
 	value_type min();
 	mapped_type& at(key_type key);
-	void serialize(std::ofstream& file);
+	void serialize(const std::string& name);
 	bool empty();
 
 	void print();
@@ -146,18 +148,22 @@ public:
 	};
 };
 
+/** Checks the node indicated by 'point' whether it is its parent's right or left child.
+* @param std::shared_ptr<my_map<key_type, mapped_type>::node> point - the shared pointer to the node to be checked
+* @return constant value of type int8_t: LEFT (0) or RIGHT (1) denoting which child the node is
+* or ROOT (2) if the node has no parent
+*/
 template<class key_type, class mapped_type>
 inline dir_t my_map<key_type, mapped_type>::which_child(std::shared_ptr<node> point)
 {
-	/*if (point->parent == nullptr)
-		return ROOT;
-	if (point->parent->child[LEFT] == point)
-		return LEFT;
-	return RIGHT;*/
 	return
 		point != root ? (point->parent->child[LEFT] == point ? LEFT : RIGHT) : ROOT;
 }
 
+/** Performs a rotation on the node pointed by 'point' in direction 'dir'.
+* @param std::shared_ptr<my_map<key_type, mapped_type>::node> point - the pointer to the node the rotation should be performed on
+* @param int8_t dir - the direction of rotation: LEFT (0) or RIGHT (1)
+*/
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::rotation(std::shared_ptr<node> point, dir_t dir)
 {
@@ -196,6 +202,10 @@ void my_map<key_type, mapped_type>::rotation(std::shared_ptr<node> point, dir_t 
 	}
 }
 
+/** Returns the pointer to predecessor of the node indicated by 'point', i.e. that one that has the greatest key that is lesser than this node's key.
+* @param std::shared_ptr<my_map<key_type, mapped_type>::node> point - the pointer to the node whose predecessor should be found
+* @return a shared pointer of type std::shared_ptr<my_map<key_type, mapped_type>::node> to the predecessor
+*/
 template<class key_type, class mapped_type>
 std::shared_ptr<typename my_map<key_type, mapped_type>::node> my_map<key_type, mapped_type>::predecessor(std::shared_ptr<node> point)
 {
@@ -220,6 +230,10 @@ std::shared_ptr<typename my_map<key_type, mapped_type>::node> my_map<key_type, m
 	}
 }
 
+/** Returns the pointer to successor of the node indicated by 'point', i.e. that one that has the least key that is greater than this node's key.
+* @param std::shared_ptr<my_map<key_type, mapped_type>::node> point - the pointer to the node whose successor should be found
+* @return a shared pointer of type std::shared_ptr<my_map<key_type, mapped_type>::node> to the successor
+*/
 template<class key_type, class mapped_type>
 std::shared_ptr<typename my_map<key_type, mapped_type>::node> my_map<key_type, mapped_type>::successor(std::shared_ptr<node> point)
 {
@@ -245,6 +259,20 @@ std::shared_ptr<typename my_map<key_type, mapped_type>::node> my_map<key_type, m
 }
 
 template<class key_type, class mapped_type>
+void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node> point)
+{
+	if (point == nullptr or point->colour == RED or point->colour == BLACK)
+		return;
+	if (point == root)
+	{
+		point->colour = BLACK;
+		return;
+	}
+
+}
+
+/// Internal class of my_map<key_type, mapped_type> used to store nodes' data
+template<class key_type, class mapped_type>
 my_map<key_type, mapped_type>::node::node()
 {
 	data = std::make_pair(key_type(), mapped_type());
@@ -252,6 +280,10 @@ my_map<key_type, mapped_type>::node::node()
 	parent = child[LEFT] = child[RIGHT] = nullptr;
 }
 
+/** Constructor of class my_map<key_type, mapped_type>::node. The colour is assigned to RED (0) and the children to nullptr.
+* @param std::pair<key_type, mapped_type> _data - the data to be stored in the node
+* @param std::shared_ptr<my_map<key_type, mapped_type>::node> _parent - the pointer to the node's parent, nullptr by default
+*/
 template<class key_type, class mapped_type>
 my_map<key_type, mapped_type>::node::node(value_type _data, std::shared_ptr<node> _parent) : data(_data), parent(_parent)
 {
@@ -260,19 +292,29 @@ my_map<key_type, mapped_type>::node::node(value_type _data, std::shared_ptr<node
 	child[RIGHT] = nullptr;
 }
 
+/// Constructor of class my_map<key_type, mapped_type>. Assigns the root with nullptr.
 template<class key_type, class mapped_type>
 my_map<key_type, mapped_type>::my_map()
 {
 	root = nullptr;
+	number_of_nodes = 0;
 }
 
+/** Move constructor of class my_map<key_type, mapped_type>. Takes over the contents of 'other'.
+* @param my_map<key_type, mapped_type>&& other - an rvalue map whose contents should be taken
+*/
 template<class key_type, class mapped_type>
 my_map<key_type, mapped_type>::my_map(my_map&& other)
 {
 	root = other.root;
 	other.root = nullptr;
+	number_of_nodes = other.number_of_nodes;
 }
 
+/** Performs insertion into the map.
+* @param std::pair<key_type, mapped_type> value
+* @return void
+*/
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::insert(value_type value)
 {
@@ -280,6 +322,7 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 	{
 		root = std::shared_ptr<node>(new node(value));
 		root->colour = BLACK;
+		++number_of_nodes;
 		return;
 	}
 	std::shared_ptr<node> point = root;
@@ -292,6 +335,7 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 			{
 				point->child[that] = std::shared_ptr<node>(new node(value, point));
 				point = point->child[that];
+				++number_of_nodes;
 				break;
 			}
 			else
@@ -304,8 +348,6 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 	{
 		while (true)
 		{
-			//if (point->colour == BLACK) // seems
-			//	return; //                    useless
 			if (point->parent == nullptr)
 			{
 				point->colour = BLACK;
@@ -341,75 +383,19 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 	}
 }
 
+/** Erases the node that holds 'key' as key if such is present in the tree.
+* @param const key_type& key - the key of the node to be erased
+* @return void
+*/
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::erase(const key_type& key)
 {
-	if (root == nullptr)
-		return;
-	std::shared_ptr<node> point = root;
-	while (point->data.first != key)
-	{
-		dir_t that = (key < point->data.first ? LEFT : RIGHT);
-		if (point->child[that] == nullptr)
-			return;
-		point = point->child[that];
-	}
-	dir_t that = which_child(point);
-	if (point->child[LEFT] == nullptr)
-	{
-		if (point->child[RIGHT] == nullptr) // no children
-		{
-			if (point == root)
-				root = nullptr;
-			else
-				point->parent->child[that] = nullptr;
-			point.reset();
-		}
-		else // only the right child
-		{
-			if (point == root)
-			{
-				root = point->child[RIGHT];
-				point->child[RIGHT]->parent = nullptr;
-			}
-			else
-			{
-				point->parent->child[that] = point->child[RIGHT];
-				point->child[RIGHT]->parent = point->parent;
-			}
-			point.reset();
-		}
-	}
-	else
-	{
-		if (point->child[RIGHT] == nullptr) // only the left child
-		{
-			if (point == root)
-			{
-				root = point->child[LEFT];
-				point->child[LEFT]->parent = nullptr;
-			}
-			else
-			{
-				point->parent->child[that] = point->child[LEFT];
-				point->child[LEFT]->parent = point->parent;
-			}
-			point.reset();
-		}
-		else // both children
-		{
-			std::shared_ptr<node> replacer = predecessor(point);
-			std::swap(point->data, replacer->data);
-			that = which_child(replacer);
-			replacer->parent->child[that] = replacer->child[RIGHT];
-			if (replacer->child[RIGHT] != nullptr)
-				replacer->child[RIGHT]->parent = replacer->parent;
-			replacer.reset();
-		}
-		// Repair red-black tree properties violation.
-	}
+
 }
 
+/** Returns the pair of the maximal key and its mapped value.
+* @return pair of type std::pair<key_type, mapped_type> of the maximal key and its mapped value
+*/
 template<class key_type, class mapped_type>
 typename my_map<key_type, mapped_type>::value_type my_map<key_type, mapped_type>::max()
 {
@@ -421,6 +407,9 @@ typename my_map<key_type, mapped_type>::value_type my_map<key_type, mapped_type>
 	return point->data;
 }
 
+/** Returns the pair of the minimal key and its mapped value.
+* @return pair of type std::pair<key_type, mapped_type> of the minimal key and its mapped value
+*/
 template<class key_type, class mapped_type>
 typename my_map<key_type, mapped_type>::value_type my_map<key_type, mapped_type>::min()
 {
@@ -432,6 +421,10 @@ typename my_map<key_type, mapped_type>::value_type my_map<key_type, mapped_type>
 	return point->data;
 }
 
+/** Accesses the value assigned to key 'key'. Throws if such key is not present.
+* @param key_type key - the key that to which the value is assigned whose reference should be accessed
+* @return the value of type mapped_type mapped to the key
+*/
 template<class key_type, class mapped_type>
 mapped_type& my_map<key_type, mapped_type>::at(key_type key)
 {
@@ -450,20 +443,41 @@ mapped_type& my_map<key_type, mapped_type>::at(key_type key)
 	}
 }
 
+/** Serializes the contents of the map to the output file stream.
+* @param ofstream& file - the output file stream the contents are serialized to
+* @return void
+*/
 template<class key_type, class mapped_type>
-void my_map<key_type, mapped_type>::serialize(std::ofstream& file)
+void my_map<key_type, mapped_type>::serialize(const std::string& name)
 {
+	std::ofstream file;
+	file.open(name, std::ios::out);
 	if (not file.good())
 		throw my_exc(error_t::bad_file);
-	// ...
+	if (root != nullptr)
+	{
+		std::shared_ptr<node> point = root;
+		
+	}
+	file.close();
+	
 }
 
+/** Returns the information whether the map is empty.
+* @return true if the map is empty, false otherwise
+*/
 template<class key_type, class mapped_type>
 bool my_map<key_type, mapped_type>::empty()
 {
 	return !root;
 }
 
+/** Prints information about the node and its children to the console.
+* @param std::shared_ptr<my_map<key_type, mapped_type>::node> point - the pointer to the node to be printed
+* @param unsigned& level - the number of the node's ancestors
+* @param int8_t dir - information wheter the node is the left (LEFT) or the right child (RIGHT)
+* @return void
+*/
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::print_node(std::shared_ptr<node> point, unsigned& level, dir_t& dir)
 {
@@ -483,14 +497,19 @@ void my_map<key_type, mapped_type>::print_node(std::shared_ptr<node> point, unsi
 		std::cout << "[" << point->data.first << ", " << point->data.second << "]; ";
 		if (point->colour == RED)
 			std::cout << "RED" << std::endl;
-		else
+		else if (point->colour == BLACK)
 			std::cout << "BLACK" << std::endl;
+		else
+			std::cout << "DOUBLE_BLACK" << std::endl;
 		dir = LEFT; print_node(point->child[LEFT], ++level, dir);
 		dir = RIGHT; print_node(point->child[RIGHT], ++level, dir);
 		--level;
 	}
 }
 
+/** Prints the contents of the map to the console.
+* @return void
+*/
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::print()
 {
