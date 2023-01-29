@@ -89,15 +89,18 @@ class my_map
 	void rotation(std::shared_ptr<node> point, dir_t dir);
 	std::shared_ptr<node> predecessor(std::shared_ptr<node> point);
 	std::shared_ptr<node> successor(std::shared_ptr<node> point);
-	void resolve_double_black(std::shared_ptr<node> point);
-
 	void print_node(std::shared_ptr<node> point, unsigned& level, dir_t& dir);
+
 
 public:
 	my_map(); // default
 	my_map(my_map& other); // copy
 	my_map(my_map&& other); // move
 	void insert(value_type value);
+private:
+	void resolve_double_black(std::shared_ptr<node>& point);
+	void erase(std::shared_ptr<node>& point);
+public:
 	void erase(const key_type& key);
 	value_type max();
 	value_type min();
@@ -258,19 +261,6 @@ std::shared_ptr<typename my_map<key_type, mapped_type>::node> my_map<key_type, m
 	}
 }
 
-template<class key_type, class mapped_type>
-void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node> point)
-{
-	if (point == nullptr or point->colour == RED or point->colour == BLACK)
-		return;
-	if (point == root)
-	{
-		point->colour = BLACK;
-		return;
-	}
-
-}
-
 /// Internal class of my_map<key_type, mapped_type> used to store nodes' data
 template<class key_type, class mapped_type>
 my_map<key_type, mapped_type>::node::node()
@@ -383,6 +373,174 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 	}
 }
 
+template<class key_type, class mapped_type>
+void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& point)
+{
+	if (point == nullptr or point->colour != DOUBLE_BLACK)
+		return;
+	if (point == root)
+	{
+		// case 1
+		root->colour = BLACK;
+		return;
+	}
+	dir_t that = which_child(point);
+	std::shared_ptr<node> parent = point->parent, sibling = parent->child[1 - that];
+	if (sibling == nullptr or sibling->colour == BLACK)
+	{
+		if (sibling->child[1 - that] == nullptr or sibling->child[1 - that]->colour == BLACK)
+		{
+			if (parent->colour == BLACK)
+			{
+				if (sibling->child[1 - that] == nullptr or sibling->child[1 - that]->colour == BLACK)
+				{
+					// case 3
+					sibling->colour = RED;
+					parent->colour = DOUBLE_BLACK;
+					resolve_double_black(parent);
+				}
+				else
+				{
+					// case 5
+					sibling->child[that]->colour = BLACK;
+					sibling->colour = RED;
+					rotation(sibling, 1 - that);
+					resolve_double_black(point);
+				}
+			}
+			else
+			{
+				// case 4
+				parent->colour = BLACK;
+				sibling->colour = RED;
+				return;
+			}
+		}
+		else
+		{
+			// case 6
+			rotation(parent, that);
+			sibling->colour = parent->colour;
+			parent->colour = BLACK;
+			sibling->child[1 - that]->colour = BLACK;
+			parent->colour = BLACK;
+			return;
+		}
+	}
+	else
+	{
+		// case 2
+		rotation(parent, that);
+		sibling->colour = BLACK;
+		parent->colour = RED;
+		resolve_double_black(point);
+	}
+}
+
+template<class key_type, class mapped_type>
+void my_map<key_type, mapped_type>::erase(std::shared_ptr<node>& point)
+{
+	if (point->child[LEFT] == nullptr)
+	{
+		if (point->child[RIGHT] == nullptr) // no children
+		{
+			if (point == root)
+			{
+				// no violation
+				root.reset();
+				point.reset();
+			}
+			else
+			{
+				// red-black tree properties violation possible here
+
+					// problems with erasing a black node //
+
+				if (point->colour == BLACK)
+				{
+					point->colour = DOUBLE_BLACK;
+					resolve_double_black(point);
+				}
+				point->parent->child[which_child(point)] = nullptr;
+				point.reset();
+			}
+		}
+		else // right child only
+		{
+			if (point == root)
+			{
+				// no violation
+				root = point->child[RIGHT];
+				point->child[RIGHT]->parent = nullptr;
+				point.reset();
+			}
+			else
+			{
+				// red-black tree properties violation possible here
+
+					// problems when both point and the child are black //
+
+				if (point->child[RIGHT]->colour == RED)
+				{
+					point->child[RIGHT]->colour = BLACK;
+					point->parent->child[which_child(point)] = point->child[RIGHT];
+					point->child[RIGHT]->parent = point->parent;
+					point.reset();
+				}
+				else
+				{
+					point->child[RIGHT]->colour = DOUBLE_BLACK;
+					point->parent->child[which_child(point)] = point->child[RIGHT];
+					point->child[RIGHT]->parent = point->parent;
+					resolve_double_black(point->child[RIGHT]);
+					point.reset();
+				}
+			}
+		}
+	}
+	else
+	{
+		if (point->child[RIGHT] == nullptr) // left child only
+		{
+			if (point == root)
+			{
+				// no violation
+				root = point->child[LEFT];
+				point->child[LEFT]->parent = nullptr;
+				point.reset();
+			}
+			else
+			{
+				// red-black tree properties violation possible here
+
+					// problems when both point and the child are black //
+
+				if (point->child[LEFT]->colour == RED)
+				{
+					point->child[LEFT]->colour = BLACK;
+					point->parent->child[which_child(point)] = point->child[LEFT];
+					point->child[LEFT]->parent = point->parent;
+					point.reset();
+				}
+				else
+				{
+					point->child[LEFT]->colour = DOUBLE_BLACK;
+					point->parent->child[which_child(point)] = point->child[LEFT];
+					point->child[LEFT]->parent = point->parent;
+					resolve_double_black(point->child[LEFT]);
+					point.reset();
+				}
+			}
+		}
+		else // both children
+		{
+			std::shared_ptr<node> replacer = predecessor(point);
+			std::swap(replacer->data, point->data);
+			erase(replacer);
+		}
+	}
+}
+
 /** Erases the node that holds 'key' as key if such is present in the tree.
 * @param const key_type& key - the key of the node to be erased
 * @return void
@@ -390,7 +548,27 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::erase(const key_type& key)
 {
-
+	if (root == nullptr)
+		return;
+	std::shared_ptr<node> point = root;
+	while (key != point->data.first)
+	{
+		if (key < point->data.first)
+		{
+			if (point->child[LEFT] == nullptr)
+				return;
+			else
+				point = point->child[LEFT];
+		}
+		else
+		{
+			if (point->child[RIGHT] == nullptr)
+				return;
+			else
+				point = point->child[RIGHT];
+		}
+	}
+	erase(point);
 }
 
 /** Returns the pair of the maximal key and its mapped value.
@@ -447,20 +625,34 @@ mapped_type& my_map<key_type, mapped_type>::at(key_type key)
 * @param ofstream& file - the output file stream the contents are serialized to
 * @return void
 */
+// Under development.
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::serialize(const std::string& name)
 {
-	std::ofstream file;
+	/*std::ofstream file;
 	file.open(name, std::ios::out);
 	if (not file.good())
 		throw my_exc(error_t::bad_file);
 	if (root != nullptr)
 	{
 		std::shared_ptr<node> point = root;
-		
+		std::shared_ptr<std::shared_ptr<node>[]> path
+			= std::shared_ptr<node>(new std::shared_ptr<node>[number_of_nodes]);
+		int i = -1;
+		do {
+			file << point->data.first << ' ' << point->data.second << '\n';
+			if (point->child[RIGHT] != nullptr)
+				path[++i] = point->child[LEFT];
+			if (point->child[LEFT] != nullptr)
+				path[++i] = point->child[RIGHT];
+			if (i >= 0)
+				point = path[i--];
+			else
+				point = point->parent;
+		} while (point != nullptr);
+		delete[] path;
 	}
-	file.close();
-	
+	file.close();*/
 }
 
 /** Returns the information whether the map is empty.

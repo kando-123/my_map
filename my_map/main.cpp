@@ -3,37 +3,39 @@
 #include <string>
 #include <utility>
 
+
 int main()
 {
 	my_map<int, std::string> example;
-	std::pair<int, std::string> z;
-	char c = 0;
+	std::pair<int, std::string> element;
+	char choice = 0;
 	bool quit = false;
 	do {
-		std::cin >> c;
-		switch (c)
+		std::cout << " > ";
+		std::cin >> choice;
+		switch (choice)
 		{
 		case 'i':
-			std::cout << "x="; if (not (std::cin >> z.first)) return 0;
-			std::cout << "y="; if (not (std::cin >> z.second)) return 0;
-			example.insert(z);
+			std::cout << "key = "; if (not (std::cin >> element.first)) return 0;
+			std::cout << "value = "; if (not (std::cin >> element.second)) return 0;
+			example.insert(element);
 			example.print();
 			std::cout << std::endl;
 			break;
 		case 'm':
-			z = example.min();
-			std::cout << "min: [" << z.first << ", " << z.second << "]" << std::endl << std::endl;
+			element = example.min();
+			std::cout << "min: [" << element.first << ", " << element.second << "]" << std::endl << std::endl;
 			break;
 		case 'M':
-			z = example.max();
-			std::cout << "max: [" << z.first << ", " << z.second << "]" << std::endl << std::endl;
+			element = example.max();
+			std::cout << "max: [" << element.first << ", " << element.second << "]" << std::endl << std::endl;
 			break;
 		case 'a':
-			std::cout << "x="; if (not (std::cin >> z.first)) return 0;
+			std::cout << "key = "; if (not (std::cin >> element.first)) return 0;
 			try
 			{
-				z.second = example.at(z.first);
-				std::cout << "map.at(" << z.first << ") = " << z.second << std::endl << std::endl;
+				element.second = example.at(element.first);
+				std::cout << "map.at(" << element.first << ") = " << element.second << std::endl << std::endl;
 			}
 			catch (my_exc e)
 			{
@@ -41,11 +43,14 @@ int main()
 			}
 			break;
 		case 'e':
-			std::cout << "x="; std::cin >> z.first;
-			example.erase(z.first);
+			std::cout << "key ="; std::cin >> element.first;
+			example.erase(element.first);
 			example.print();
 			std::cout << std::endl;
 			break;
+		//case 's':
+			//example.serialize("map#001.txt");
+			//break;
 		case 'q':
 			quit = true;
 		}
