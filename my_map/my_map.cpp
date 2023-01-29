@@ -6,14 +6,6 @@
 
 #include <iostream>
 
-// to do
-// deletion
-// serialisation
-//   ? order of serialisation to avoid recolouring ?
-// operator=
-
-// report
-
 /// Passed as argument to the constructor of exception class 'my_exc'.
 enum class error_t
 {
