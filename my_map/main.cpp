@@ -8,6 +8,7 @@ int main()
 {
 	my_map<int, std::string> example;
 	std::pair<int, std::string> element;
+	std::string text;
 	char choice = 0;
 	bool quit = false;
 	do {
@@ -15,11 +16,13 @@ int main()
 		std::cin >> choice;
 		switch (choice)
 		{
+		case 'p':
+			example.print();
+			break;
 		case 'i':
 			std::cout << "key = "; if (not (std::cin >> element.first)) return 0;
 			std::cout << "value = "; if (not (std::cin >> element.second)) return 0;
 			example.insert(element);
-			example.print();
 			std::cout << std::endl;
 			break;
 		case 'm':
@@ -45,12 +48,20 @@ int main()
 		case 'e':
 			std::cout << "key ="; std::cin >> element.first;
 			example.erase(element.first);
-			example.print();
 			std::cout << std::endl;
 			break;
-		//case 's':
-			//example.serialize("map#001.txt");
-			//break;
+		case 's':
+			getchar();
+			std::cout << "file name = ";
+			std::getline(std::cin, text);
+			example.serialize(text);
+			break;
+		case 'd':
+			getchar();
+			std::cout << "file name = ";
+			std::getline(std::cin, text);
+			example.deserialize(text);
+			break;
 		case 'q':
 			quit = true;
 		}

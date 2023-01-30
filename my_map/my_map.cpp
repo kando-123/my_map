@@ -14,6 +14,7 @@ enum class error_t
 	left_rotation_impossible,
 	wrong_direction,
 	empty_map,
+	non_empty_map,
 	out_of_range,
 	bad_file,
 	no_predecessor,
@@ -40,6 +41,8 @@ public:
 			return "Wrong direction. Only LEFT (0) and RIGHT (1) are valid.";
 		case error_t::empty_map:
 			return "Attempt of performing an action inexecutable on an empty tree.";
+		case error_t::non_empty_map:
+			return "Attempt of performing an action inexecutable on a non empty tree.";
 		case error_t::out_of_range:
 			return "Out of range.";
 		case error_t::bad_file:
@@ -97,7 +100,11 @@ public:
 	value_type max();
 	value_type min();
 	mapped_type& at(key_type key);
+private:
+	void serialize(std::shared_ptr<node> point, std::ofstream& file);
+public:
 	void serialize(const std::string& name);
+	void deserialize(const std::string& name);
 	bool empty();
 
 	void print();
@@ -365,6 +372,10 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 	}
 }
 
+/** Resolves the node marked as double black.
+* @param std::shared_ptr<my_map<key_type, mapped_type>::node>& point - shared pointer to the double black node
+* @return void
+*/
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& point)
 {
@@ -429,6 +440,10 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 	}
 }
 
+/** Erases the node indicated by 'point'.
+* @param std::shared_ptr<my_map<key_type, mapped_type>::node>& point - shared pointer to the double black node
+* @return void
+*/
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::erase(std::shared_ptr<node>& point)
 {
@@ -613,6 +628,19 @@ mapped_type& my_map<key_type, mapped_type>::at(key_type key)
 	}
 }
 
+template<class key_type, class mapped_type>
+void my_map<key_type, mapped_type>::serialize(std::shared_ptr<node> point, std::ofstream& file)
+{
+	if (point != nullptr)
+	{
+		file << point->data.first << ' ' << point->data.second << '\n';
+		if (point->child[LEFT] != nullptr)
+			serialize(point->child[LEFT], file);
+		if (point->child[RIGHT] != nullptr)
+			serialize(point->child[RIGHT], file);
+	}
+}
+
 /** Serializes the contents of the map to the output file stream.
 * @param ofstream& file - the output file stream the contents are serialized to
 * @return void
@@ -621,30 +649,35 @@ mapped_type& my_map<key_type, mapped_type>::at(key_type key)
 template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::serialize(const std::string& name)
 {
-	/*std::ofstream file;
+	std::ofstream file;
 	file.open(name, std::ios::out);
-	if (not file.good())
-		throw my_exc(error_t::bad_file);
-	if (root != nullptr)
+	if (file.good())
+		serialize(root, file);
+	file.close();
+}
+
+template<class key_type, class mapped_type>
+void my_map<key_type, mapped_type>::deserialize(const std::string& name)
+{
+	std::ifstream file;
+	file.open(name, std::ios::out);
+	if (file.good())
 	{
-		std::shared_ptr<node> point = root;
-		std::shared_ptr<std::shared_ptr<node>[]> path
-			= std::shared_ptr<node>(new std::shared_ptr<node>[number_of_nodes]);
-		int i = -1;
-		do {
-			file << point->data.first << ' ' << point->data.second << '\n';
-			if (point->child[RIGHT] != nullptr)
-				path[++i] = point->child[LEFT];
-			if (point->child[LEFT] != nullptr)
-				path[++i] = point->child[RIGHT];
-			if (i >= 0)
-				point = path[i--];
-			else
-				point = point->parent;
-		} while (point != nullptr);
-		delete[] path;
+		value_type value;
+		/*while (not file.eof())
+		{
+			if (not (file >> value.first))
+				break;
+			if (not (file >> value.second))
+				break;
+			insert(value);
+		}*/
+		while ((file >> value.first) and (file >> value.second))
+		{
+			insert(value);
+		}
 	}
-	file.close();*/
+	file.close();
 }
 
 /** Returns the information whether the map is empty.
