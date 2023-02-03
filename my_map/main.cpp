@@ -3,7 +3,6 @@
 #include <string>
 #include <utility>
 
-
 int main()
 {
 	my_map<int, std::string> example;

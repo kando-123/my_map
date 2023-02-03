@@ -84,7 +84,7 @@ class my_map
 	void rotation(std::shared_ptr<node> point, dir_t dir);
 	std::shared_ptr<node> predecessor(std::shared_ptr<node> point);
 	std::shared_ptr<node> successor(std::shared_ptr<node> point);
-	void print_node(std::shared_ptr<node> point, unsigned& level, dir_t& dir);
+	void print_node(std::shared_ptr<node> point, unsigned& level, unsigned& black_depth, dir_t& dir);
 
 
 public:
@@ -384,6 +384,7 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 	if (point == root)
 	{
 		// case 1
+		std::cout << "Case 1" << std::endl;
 		root->colour = BLACK;
 		return;
 	}
@@ -395,16 +396,19 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 		{
 			if (parent->colour == BLACK)
 			{
-				if (sibling->child[1 - that] == nullptr or sibling->child[1 - that]->colour == BLACK)
+				if (sibling->child[that] == nullptr or sibling->child[that]->colour == BLACK)
 				{
 					// case 3
+					std::cout << "Case 3" << std::endl;
 					sibling->colour = RED;
 					parent->colour = DOUBLE_BLACK;
+					point->colour = BLACK;
 					resolve_double_black(parent);
 				}
 				else
 				{
 					// case 5
+					std::cout << "Case 5" << std::endl;
 					sibling->child[that]->colour = BLACK;
 					sibling->colour = RED;
 					rotation(sibling, 1 - that);
@@ -414,6 +418,7 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 			else
 			{
 				// case 4
+				std::cout << "Case 4" << std::endl;
 				parent->colour = BLACK;
 				sibling->colour = RED;
 				return;
@@ -422,6 +427,7 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 		else
 		{
 			// case 6
+			std::cout << "Case 6" << std::endl;
 			rotation(parent, that);
 			sibling->colour = parent->colour;
 			parent->colour = BLACK;
@@ -433,6 +439,7 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 	else
 	{
 		// case 2
+		std::cout << "Case 2" << std::endl;
 		rotation(parent, that);
 		sibling->colour = BLACK;
 		parent->colour = RED;
@@ -664,18 +671,8 @@ void my_map<key_type, mapped_type>::deserialize(const std::string& name)
 	if (file.good())
 	{
 		value_type value;
-		/*while (not file.eof())
-		{
-			if (not (file >> value.first))
-				break;
-			if (not (file >> value.second))
-				break;
-			insert(value);
-		}*/
 		while ((file >> value.first) and (file >> value.second))
-		{
 			insert(value);
-		}
 	}
 	file.close();
 }
@@ -696,7 +693,7 @@ bool my_map<key_type, mapped_type>::empty()
 * @return void
 */
 template<class key_type, class mapped_type>
-void my_map<key_type, mapped_type>::print_node(std::shared_ptr<node> point, unsigned& level, dir_t& dir)
+void my_map<key_type, mapped_type>::print_node(std::shared_ptr<node> point, unsigned& level, unsigned& black_depth, dir_t& dir)
 {
 	for (unsigned i = 1; i < level; ++i)
 		std::cout << "      ";
@@ -706,21 +703,27 @@ void my_map<key_type, mapped_type>::print_node(std::shared_ptr<node> point, unsi
 		std::cout << " <r> ";
 	if (point == nullptr)
 	{
-		std::cout << "nul" << std::endl;
+		std::cout << "nul, " << black_depth + 1 << std::endl;
 		--level;
 	}
 	else
 	{
-		std::cout << "[" << point->data.first << ", " << point->data.second << "]; ";
+		std::cout << "[" << point->data.first << ", " << point->data.second << "], ";
 		if (point->colour == RED)
-			std::cout << "RED" << std::endl;
+			std::cout << "red" << std::endl;
 		else if (point->colour == BLACK)
-			std::cout << "BLACK" << std::endl;
+			std::cout << "black" << std::endl;
 		else
-			std::cout << "DOUBLE_BLACK" << std::endl;
-		dir = LEFT; print_node(point->child[LEFT], ++level, dir);
-		dir = RIGHT; print_node(point->child[RIGHT], ++level, dir);
+			std::cout << "double_black" << std::endl;
+		dir = LEFT;
+		if (point->colour == BLACK)
+			++black_depth;
+		print_node(point->child[LEFT], ++level, black_depth, dir);
+		dir = RIGHT;
+		print_node(point->child[RIGHT], ++level, black_depth, dir);
 		--level;
+		if (point->colour == BLACK)
+			--black_depth;
 	}
 }
 
@@ -731,7 +734,7 @@ template<class key_type, class mapped_type>
 void my_map<key_type, mapped_type>::print()
 {
 	std::cout << "root: ";
-	unsigned depth = 0;
+	unsigned depth = 0, black_height = 0;
 	dir_t which = ROOT;
-	print_node(root, depth, which);
+	print_node(root, depth, black_height, which);
 }
