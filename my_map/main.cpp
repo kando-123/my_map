@@ -11,7 +11,7 @@ int main()
 	char choice = 0;
 	bool quit = false;
 	do {
-		std::cout << " > ";
+		std::cout << "> ";
 		std::cin >> choice;
 		switch (choice)
 		{
@@ -45,7 +45,7 @@ int main()
 			}
 			break;
 		case 'e':
-			std::cout << "key ="; std::cin >> element.first;
+			std::cout << "key = "; std::cin >> element.first;
 			example.erase(element.first);
 			std::cout << std::endl;
 			break;

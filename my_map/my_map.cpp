@@ -400,9 +400,9 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 				{
 					// case 3
 					std::cout << "Case 3" << std::endl;
-					sibling->colour = RED;
-					parent->colour = DOUBLE_BLACK;
 					point->colour = BLACK;
+					parent->colour = DOUBLE_BLACK;
+					sibling->colour = RED;
 					resolve_double_black(parent);
 				}
 				else
@@ -419,6 +419,7 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 			{
 				// case 4
 				std::cout << "Case 4" << std::endl;
+				point->colour = BLACK;
 				parent->colour = BLACK;
 				sibling->colour = RED;
 				return;
@@ -429,6 +430,7 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 			// case 6
 			std::cout << "Case 6" << std::endl;
 			rotation(parent, that);
+			point->colour = BLACK;
 			sibling->colour = parent->colour;
 			parent->colour = BLACK;
 			sibling->child[1 - that]->colour = BLACK;
@@ -441,6 +443,7 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 		// case 2
 		std::cout << "Case 2" << std::endl;
 		rotation(parent, that);
+		point->colour = BLACK;
 		sibling->colour = BLACK;
 		parent->colour = RED;
 		resolve_double_black(point);
