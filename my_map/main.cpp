@@ -61,6 +61,11 @@ int main()
 			std::getline(std::cin, text);
 			example.deserialize(text);
 			break;
+		case 'r':
+			element.first = rand();
+			element.second = "rand";
+			example.insert(element);
+			break;
 		case 'q':
 			quit = true;
 		}

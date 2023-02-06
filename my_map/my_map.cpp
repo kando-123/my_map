@@ -88,9 +88,8 @@ class my_map
 
 
 public:
-	my_map(); // default
-	my_map(my_map& other); // copy
-	my_map(my_map&& other); // move
+	my_map();
+	my_map(my_map&& other);
 	void insert(value_type value);
 private:
 	void resolve_double_black(std::shared_ptr<node>& point);
@@ -463,16 +462,11 @@ void my_map<key_type, mapped_type>::erase(std::shared_ptr<node>& point)
 		{
 			if (point == root)
 			{
-				// no violation
 				root.reset();
 				point.reset();
 			}
 			else
 			{
-				// red-black tree properties violation possible here
-
-					// problems with erasing a black node //
-
 				if (point->colour == BLACK)
 				{
 					point->colour = DOUBLE_BLACK;
@@ -486,17 +480,12 @@ void my_map<key_type, mapped_type>::erase(std::shared_ptr<node>& point)
 		{
 			if (point == root)
 			{
-				// no violation
 				root = point->child[RIGHT];
 				point->child[RIGHT]->parent = nullptr;
 				point.reset();
 			}
 			else
 			{
-				// red-black tree properties violation possible here
-
-					// problems when both point and the child are black //
-
 				if (point->child[RIGHT]->colour == RED)
 				{
 					point->child[RIGHT]->colour = BLACK;
@@ -521,17 +510,12 @@ void my_map<key_type, mapped_type>::erase(std::shared_ptr<node>& point)
 		{
 			if (point == root)
 			{
-				// no violation
 				root = point->child[LEFT];
 				point->child[LEFT]->parent = nullptr;
 				point.reset();
 			}
 			else
 			{
-				// red-black tree properties violation possible here
-
-					// problems when both point and the child are black //
-
 				if (point->child[LEFT]->colour == RED)
 				{
 					point->child[LEFT]->colour = BLACK;
