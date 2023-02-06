@@ -192,14 +192,14 @@ void my_map<key_type, mapped_type>::rotation(std::shared_ptr<node> point, dir_t 
 	else
 	{
 		std::shared_ptr<node> ancestor = point->parent;
-		dir_t that = which_child(point);
-		ancestor->child[that] = point->child[1 - dir];
-		ancestor->child[that]->parent = ancestor;
-		point->child[1 - dir] = ancestor->child[that]->child[dir];
+		dir_t side = which_child(point);
+		ancestor->child[side] = point->child[1 - dir];
+		ancestor->child[side]->parent = ancestor;
+		point->child[1 - dir] = ancestor->child[side]->child[dir];
 		if (point->child[1 - dir] != nullptr)
 			point->child[1 - dir]->parent = point;
-		ancestor->child[that]->child[dir] = point;
-		point->parent = ancestor->child[that];
+		ancestor->child[side]->child[dir] = point;
+		point->parent = ancestor->child[side];
 	}
 }
 
@@ -223,9 +223,9 @@ std::shared_ptr<typename my_map<key_type, mapped_type>::node> my_map<key_type, m
 		{
 			if (point->parent == nullptr)
 				throw my_exc(error_t::no_predecessor);
-			dir_t that = which_child(point);
+			dir_t side = which_child(point);
 			point = point->parent;
-			if (that == RIGHT)
+			if (side == RIGHT)
 				return point;
 		}
 	}
@@ -251,9 +251,9 @@ std::shared_ptr<typename my_map<key_type, mapped_type>::node> my_map<key_type, m
 		{
 			if (point->parent == nullptr)
 				throw my_exc(error_t::no_successor);
-			dir_t that = which_child(point);
+			dir_t side = which_child(point);
 			point = point->parent;
-			if (that == LEFT)
+			if (side == LEFT)
 				return point;
 		}
 	}
@@ -318,16 +318,16 @@ void my_map<key_type, mapped_type>::insert(value_type value)
 	{
 		if (value.first != point->data.first)
 		{
-			dir_t that = (value.first < point->data.first ? LEFT : RIGHT);
-			if (point->child[that] == nullptr)
+			dir_t side = (value.first < point->data.first ? LEFT : RIGHT);
+			if (point->child[side] == nullptr)
 			{
-				point->child[that] = std::shared_ptr<node>(new node(value, point));
-				point = point->child[that];
+				point->child[side] = std::shared_ptr<node>(new node(value, point));
+				point = point->child[side];
 				++number_of_nodes;
 				break;
 			}
 			else
-				point = point->child[that];
+				point = point->child[side];
 		}
 		else
 			return;
@@ -382,70 +382,67 @@ void my_map<key_type, mapped_type>::resolve_double_black(std::shared_ptr<node>& 
 		return;
 	if (point == root)
 	{
-		// case 1
-		std::cout << "Case 1" << std::endl;
+		// Case D1
+		std::cout << "Case D1" << std::endl;
 		root->colour = BLACK;
 		return;
 	}
-	dir_t that = which_child(point);
-	std::shared_ptr<node> parent = point->parent, sibling = parent->child[1 - that];
-	if (sibling == nullptr or sibling->colour == BLACK)
+	dir_t side = which_child(point);
+	std::shared_ptr<node> parent = point->parent, sibling = parent->child[1 - side],
+		close = sibling->child[side], distant = sibling->child[1 - side];
+	if (sibling != nullptr and sibling->colour == RED)
 	{
-		if (sibling->child[1 - that] == nullptr or sibling->child[1 - that]->colour == BLACK)
-		{
-			if (parent->colour == BLACK)
-			{
-				if (sibling->child[that] == nullptr or sibling->child[that]->colour == BLACK)
-				{
-					// case 3
-					std::cout << "Case 3" << std::endl;
-					point->colour = BLACK;
-					parent->colour = DOUBLE_BLACK;
-					sibling->colour = RED;
-					resolve_double_black(parent);
-				}
-				else
-				{
-					// case 5
-					std::cout << "Case 5" << std::endl;
-					sibling->child[that]->colour = BLACK;
-					sibling->colour = RED;
-					rotation(sibling, 1 - that);
-					resolve_double_black(point);
-				}
-			}
-			else
-			{
-				// case 4
-				std::cout << "Case 4" << std::endl;
-				point->colour = BLACK;
-				parent->colour = BLACK;
-				sibling->colour = RED;
-				return;
-			}
-		}
-		else
-		{
-			// case 6
-			std::cout << "Case 6" << std::endl;
-			rotation(parent, that);
-			point->colour = BLACK;
-			sibling->colour = parent->colour;
-			parent->colour = BLACK;
-			sibling->child[1 - that]->colour = BLACK;
-			parent->colour = BLACK;
-			return;
-		}
+		// Case D3
+		std::cout << "Case D3" << std::endl;
+		rotation(parent, side);
+		parent->colour = RED;
+		sibling->colour = BLACK;
+		resolve_double_black(point);
 	}
 	else
 	{
-		// case 2
-		std::cout << "Case 2" << std::endl;
-		rotation(parent, that);
-		point->colour = BLACK;
-		sibling->colour = BLACK;
-		parent->colour = RED;
-		resolve_double_black(point);
+		if (distant != nullptr and distant->colour == RED)
+		{
+			// Case D6
+			std::cout << "Case D6" << std::endl;
+			rotation(parent, side);
+			sibling->colour = parent->colour;
+			parent->colour = BLACK;
+			distant->colour = BLACK;
+			point->colour = BLACK;
+		}
+		else
+		{
+			if (close != nullptr and close->colour == RED)
+			{
+				// Case D5
+				std::cout << "Case D5" << std::endl;
+				rotation(sibling, 1 - side);
+				sibling->colour = RED;
+				close->colour = BLACK;
+				resolve_double_black(point);
+			}
+			else
+			{
+				if (parent->colour == RED)
+				{
+					// Case D4
+					std::cout << "Case D4" << std::endl;
+					sibling->colour = RED;
+					parent->colour = BLACK;
+					point->colour = BLACK;
+				}
+				else
+				{
+					// Case D2
+					std::cout << "Case D2" << std::endl;
+					sibling->colour = RED;
+					point->colour = BLACK;
+					parent->colour = DOUBLE_BLACK;
+					resolve_double_black(parent);
+				}
+			}
+		}
 	}
 }
 
@@ -614,11 +611,11 @@ mapped_type& my_map<key_type, mapped_type>::at(key_type key)
 	{
 		if (point->data.first == key)
 			return point->data.second;
-		dir_t that = (key < point->data.first ? LEFT : RIGHT);
-		if (point->child[that] == nullptr)
+		dir_t side = (key < point->data.first ? LEFT : RIGHT);
+		if (point->child[side] == nullptr)
 			throw my_exc(error_t::out_of_range);
 		else
-			point = point->child[that];
+			point = point->child[side];
 	}
 }
 
